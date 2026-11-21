@@ -13,7 +13,7 @@ const String backendUrl = 'https://sarvana-ai.onrender.com';
 
 // Temporary testing placeholder.
 // Do not put your OpenAI API key here.
-const String appToken = 'YOUR-APP-TOKEN';
+const String appToken =Sarvana_7mQ9vL2xK8pR5nT4wH6cF3zB1jY0aD;
 
 class SarvanaApp extends StatelessWidget {
   const SarvanaApp({super.key});
@@ -111,7 +111,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     if (text.isEmpty || loading || loadingHistory) return;
 
-    if (appToken == 'YOUR-APP-TOKEN') {
+    if (appToken =='Sarvana_7mQ9vL2xK8pR5nT4wH6cF3zB1jY0aD') {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('App token setup is pending.')),
       );
