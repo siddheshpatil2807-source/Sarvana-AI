@@ -86,7 +86,53 @@ class _SarvanaAppState extends State<SarvanaApp> {
 class ChatScreen extends StatefulWidget {
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode> onThemeChanged;
+final ImagePicker picker = ImagePicker();
 
+String? profileImagePath;
+String? wallpaperImagePath;
+
+Future<String> saveSelectedImage(XFile image) async {
+  final directory = await getApplicationDocumentsDirectory();
+  final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+  final savedFile = await File(image.path).copy(
+    '${directory.path}/$fileName',
+  );
+  return savedFile.path;
+}
+
+Future<void> changeProfilePhoto() async {
+  final image = await picker.pickImage(
+    source: ImageSource.gallery,
+    imageQuality: 85,
+  );
+
+  if (image == null) return;
+
+  final path = await saveSelectedImage(image);
+  final prefs = await SharedPreferences.getInstance();
+
+  await prefs.setString('hindavi_dp', path);
+
+  if (!mounted) return;
+  setState(() => profileImagePath = path);
+}
+
+Future<void> changeWallpaper() async {
+  final image = await picker.pickImage(
+    source: ImageSource.gallery,
+    imageQuality: 85,
+  );
+
+  if (image == null) return;
+
+  final path = await saveSelectedImage(image);
+  final prefs = await SharedPreferences.getInstance();
+
+  await prefs.setString('hindavi_wallpaper', path);
+
+  if (!mounted) return;
+  setState(() => wallpaperImagePath = path);
+}
   const ChatScreen({
     super.key,
     required this.themeMode,
