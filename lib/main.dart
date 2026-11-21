@@ -18,11 +18,23 @@ class SarvanaApp extends StatefulWidget {
 
 class _SarvanaAppState extends State<SarvanaApp> {
   ThemeMode themeMode = ThemeMode.dark;
+@override
+void initState() {
+  super.initState();
+  loadMessages();
+  loadCustomImages();
+}
 
-  @override
-  void initState() {
-    super.initState();
-    loadTheme();
+Future<void> loadCustomImages() async {
+  final prefs = await SharedPreferences.getInstance();
+
+  if (!mounted) return;
+
+  setState(() {
+    profileImagePath = prefs.getString('hindavi_dp');
+    wallpaperImagePath = prefs.getString('hindavi_wallpaper');
+  });
+}
   }
 
   Future<void> loadTheme() async {
