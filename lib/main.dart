@@ -8,9 +8,7 @@ void main() {
 }
 
 const String backendUrl =
-    'https://YOUR-RENDER-SERVICE.onrender.com';
-
-const String appToken = 'YOUR-APP-TOKEN';
+    'https://sarvana-ai.onrender.com';
 
 class SarvanaApp extends StatelessWidget {
   const SarvanaApp({super.key});
