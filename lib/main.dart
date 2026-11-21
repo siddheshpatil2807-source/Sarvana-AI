@@ -1,207 +1,182 @@
 
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
   runApp(const SarvanaApp());
 }
 
-const String backendUrl = 'https://sarvana-ai.onrender.com';
-
-// Temporary testing placeholder.
-// Do not put your OpenAI API key here.
-const String appToken =Sarvana_7mQ9vL2xK8pR5nT4wH6cF3zB1jY0aD;
-
-class SarvanaApp extends StatelessWidget {
+class SarvanaApp extends StatefulWidget {
   const SarvanaApp({super.key});
+
+  @override
+  State<SarvanaApp> createState() => _SarvanaAppState();
+}
+
+class _SarvanaAppState extends State<SarvanaApp> {
+  ThemeMode themeMode = ThemeMode.dark;
+
+  @override
+  void initState() {
+    super.initState();
+    loadTheme();
+  }
+
+  Future<void> loadTheme() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString('sarvana_theme') ?? 'dark';
+    if (!mounted) return;
+    setState(() {
+      themeMode = saved == 'light'
+          ? ThemeMode.light
+          : saved == 'system'
+              ? ThemeMode.system
+              : ThemeMode.dark;
+    });
+  }
+
+  Future<void> changeTheme(ThemeMode mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'sarvana_theme',
+      mode == ThemeMode.light
+          ? 'light'
+          : mode == ThemeMode.system
+              ? 'system'
+              : 'dark',
+    );
+    setState(() => themeMode = mode);
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Sarvana AI',
-      theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color(0xFF100D19),
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFFB58AFF),
+      themeMode: themeMode,
+      theme: ThemeData(
+        brightness: Brightness.light,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF008F70),
+          brightness: Brightness.light,
         ),
+        scaffoldBackgroundColor: const Color(0xFFF0F2F5),
+        useMaterial3: true,
       ),
-      home: const ChatScreen(),
+      darkTheme: ThemeData(
+        brightness: Brightness.dark,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF00A884),
+          brightness: Brightness.dark,
+        ),
+        scaffoldBackgroundColor: const Color(0xFF0B141A),
+        useMaterial3: true,
+      ),
+      home: ChatScreen(
+        themeMode: themeMode,
+        onThemeChanged: changeTheme,
+      ),
     );
   }
 }
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  final ThemeMode themeMode;
+  final ValueChanged<ThemeMode> onThemeChanged;
+
+  const ChatScreen({
+    super.key,
+    required this.themeMode,
+    required this.onThemeChanged,
+  });
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final storage = SharedPreferencesAsync();
   final controller = TextEditingController();
   final scrollController = ScrollController();
 
-  final characters = ['Hindavi', 'Kabir', 'Vivaan', 'Meher'];
-
-  String character = 'Hindavi';
-  List<Map<String, String>> messages = [];
-  List<Map<String, String>> history = [];
-
-  bool loading = false;
-  bool loadingHistory = true;
-
-  String storageKey(String name) => 'sarvana_chat_$name';
-
-  Future<void> saveMessages() async {
-    await storage.setString(
-      storageKey(character),
-      jsonEncode(messages),
-    );
-  }
-
-  Future<void> loadMessages(String name) async {
-    setState(() {
-      loadingHistory = true;
-      messages = [];
-      history = [];
-    });
-
-    try {
-      final saved = await storage.getString(storageKey(name));
-
-      if (saved != null) {
-        final decoded = jsonDecode(saved) as List;
-
-        final loaded = decoded.map((item) {
-          return Map<String, String>.from(item);
-        }).toList();
-
-        if (mounted && character == name) {
-          setState(() {
-            messages = loaded;
-            history = loaded.where((item) {
-              return item['role'] == 'user' ||
-                  item['role'] == 'assistant';
-            }).toList();
-          });
-        }
-      }
-    } catch (_) {
-      // Ignore invalid old local data.
-    }
-
-    if (mounted) {
-      setState(() => loadingHistory = false);
-    }
-  }
+  List<Map<String, dynamic>> messages = [];
+  bool loading = true;
 
   @override
   void initState() {
     super.initState();
-    loadMessages(character);
+    loadMessages();
+  }
+
+  Future<void> loadMessages() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString('hindavi_chat');
+    if (saved != null) {
+      messages = List<Map<String, dynamic>>.from(
+        (jsonDecode(saved) as List).map(
+          (item) => Map<String, dynamic>.from(item),
+        ),
+      );
+    }
+    if (mounted) setState(() => loading = false);
+    scrollToBottom();
+  }
+
+  Future<void> saveMessages() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('hindavi_chat', jsonEncode(messages));
+  }
+
+  void scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (scrollController.hasClients) {
+        scrollController.animateTo(
+          scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   Future<void> sendMessage() async {
     final text = controller.text.trim();
-
-    if (text.isEmpty || loading || loadingHistory) return;
-
-    if (appToken =='Sarvana_7mQ9vL2xK8pR5nT4wH6cF3zB1jY0aD') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('App token setup is pending.')),
-      );
-      return;
-    }
+    if (text.isEmpty) return;
 
     controller.clear();
 
-    final previousHistory =
-        history.map((item) => Map<String, String>.from(item)).toList();
-
     setState(() {
-      messages.add({'role': 'user', 'content': text});
-      history.add({'role': 'user', 'content': text});
-      loading = true;
+      messages.add({
+        'text': text,
+        'mine': true,
+        'time': DateTime.now().toIso8601String(),
+      });
     });
 
     await saveMessages();
+    scrollToBottom();
 
-    try {
-      final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 40);
-
-      final request = await client.postUrl(
-        Uri.parse('$backendUrl/chat'),
-      );
-
-      request.headers.contentType = ContentType.json;
-      request.headers.set('x-app-token', appToken);
-
-      request.write(jsonEncode({
-        'character': character,
-        'message': text,
-        'history': previousHistory.take(30).toList(),
-      }));
-
-      final response = await request.close();
-      final body = await response.transform(utf8.decoder).join();
-      client.close();
-
-      if (response.statusCode != 200) {
-        throw Exception('Server error ${response.statusCode}');
-      }
-
-      final data = jsonDecode(body);
-      final reply = data['reply']?.toString() ?? 'No reply received.';
-
-      if (!mounted) return;
-
-      setState(() {
-        messages.add({
-          'role': 'assistant',
-          'content': reply,
-        });
-
-        history.add({
-          'role': 'assistant',
-          'content': reply,
-        });
-      });
-
-      await saveMessages();
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Connection failed. Please try again.'),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => loading = false);
-
-        if (scrollController.hasClients) {
-          scrollController.animateTo(
-            scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      }
-    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Message saved. AI connection will be enabled after secure setup.',
+        ),
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
-  Future<void> changeCharacter(String? value) async {
-    if (value == null || loading) return;
-
-    setState(() => character = value);
-    await loadMessages(value);
+  String timeLabel(dynamic value) {
+    try {
+      final date = DateTime.parse(value.toString()).toLocal();
+      final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
+      final minute = date.minute.toString().padLeft(2, '0');
+      final period = date.hour >= 12 ? 'PM' : 'AM';
+      return '$hour:$minute $period';
+    } catch (_) {
+      return '';
+    }
   }
 
   @override
@@ -213,116 +188,255 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final incoming = dark
+        ? const Color(0xFF202C33)
+        : Colors.white;
+    final outgoing = dark
+        ? const Color(0xFF005C4B)
+        : const Color(0xFFD9FDD3);
+
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF21182F),
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        elevation: 1,
+        titleSpacing: 0,
+        title: Row(
           children: [
-            Text('SARVANA AI',
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            Text('Your AI companion',
-                style: TextStyle(fontSize: 11, color: Colors.white60)),
+            const CircleAvatar(
+              radius: 21,
+              backgroundColor: Color(0xFF008F70),
+              child: Text(
+                'H',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Hindavi',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    'Sarvana AI Companion',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
         actions: [
-          DropdownButton<String>(
-            value: character,
-            dropdownColor: const Color(0xFF29213B),
-            underline: const SizedBox(),
-            items: characters.map((name) {
-              return DropdownMenuItem(
-                value: name,
-                child: Text(name),
+          IconButton(
+            icon: const Icon(Icons.call_outlined),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Voice calling coming soon')),
               );
-            }).toList(),
-            onChanged: changeCharacter,
+            },
           ),
-          const SizedBox(width: 12),
+          PopupMenuButton<ThemeMode>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: widget.onThemeChanged,
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: ThemeMode.light,
+                child: Text('Light mode'),
+              ),
+              PopupMenuItem(
+                value: ThemeMode.dark,
+                child: Text('Dark mode'),
+              ),
+              PopupMenuItem(
+                value: ThemeMode.system,
+                child: Text('System default'),
+              ),
+            ],
+          ),
         ],
       ),
       body: Column(
         children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 7,
+            ),
+            color: dark
+                ? const Color(0xFF182229)
+                : const Color(0xFFE4F3EC),
+            child: const Text(
+              'Demo mode • Secure AI connection pending',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 11),
+            ),
+          ),
           Expanded(
-            child: loadingHistory
+            child: loading
                 ? const Center(child: CircularProgressIndicator())
                 : messages.isEmpty
                     ? Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.favorite,
-                                size: 45, color: Color(0xFFB58AFF)),
+                            const CircleAvatar(
+                              radius: 36,
+                              backgroundColor: Color(0xFF008F70),
+                              child: Text(
+                                'H',
+                                style: TextStyle(
+                                  fontSize: 32,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
                             const SizedBox(height: 12),
-                            Text('Start your story with $character'),
-                            const SizedBox(height: 5),
                             const Text(
-                              'Your conversations will be saved.',
-                              style: TextStyle(color: Colors.white54),
+                              'Start a conversation with Hindavi',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              'Your story begins here.',
+                              style: TextStyle(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                              ),
                             ),
                           ],
                         ),
                       )
                     : ListView.builder(
                         controller: scrollController,
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(12),
                         itemCount: messages.length,
                         itemBuilder: (context, index) {
                           final item = messages[index];
-                          final isUser = item['role'] == 'user';
+                          final mine = item['mine'] == true;
 
                           return Align(
-                            alignment: isUser
+                            alignment: mine
                                 ? Alignment.centerRight
                                 : Alignment.centerLeft,
                             child: Container(
-                              constraints:
-                                  const BoxConstraints(maxWidth: 310),
-                              margin: const EdgeInsets.symmetric(vertical: 7),
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: isUser
-                                    ? const Color(0xFF7651B5)
-                                    : const Color(0xFF292536),
-                                borderRadius: BorderRadius.circular(18),
+                              constraints: BoxConstraints(
+                                maxWidth:
+                                    MediaQuery.of(context).size.width * 0.78,
                               ),
-                              child: Text(item['content'] ?? ''),
+                              margin: const EdgeInsets.symmetric(
+                                vertical: 4,
+                              ),
+                              padding: const EdgeInsets.fromLTRB(
+                                12, 9, 9, 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: mine ? outgoing : incoming,
+                                borderRadius: BorderRadius.only(
+                                  topLeft: const Radius.circular(12),
+                                  topRight: const Radius.circular(12),
+                                  bottomLeft: Radius.circular(mine ? 12 : 2),
+                                  bottomRight: Radius.circular(mine ? 2 : 12),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      item['text']?.toString() ?? '',
+                                      style: const TextStyle(fontSize: 15),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    timeLabel(item['time']),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           );
                         },
                       ),
           ),
-          if (loading)
-            const Padding(
-              padding: EdgeInsets.all(8),
-              child: Text('Typing...'),
-            ),
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
+            top: false,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 7,
+                vertical: 7,
+              ),
+              color: Theme.of(context).scaffoldBackgroundColor,
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
+                  IconButton(
+                    icon: const Icon(Icons.emoji_emotions_outlined),
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Emoji picker coming soon'),
+                        ),
+                      );
+                    },
+                  ),
                   Expanded(
                     child: TextField(
                       controller: controller,
                       minLines: 1,
-                      maxLines: 4,
-                      onSubmitted: (_) => sendMessage(),
+                      maxLines: 5,
+                      textCapitalization: TextCapitalization.sentences,
                       decoration: InputDecoration(
-                        hintText: 'Message $character...',
+                        hintText: 'Message Hindavi...',
                         filled: true,
-                        fillColor: const Color(0xFF292536),
+                        fillColor: Theme.of(context).colorScheme.surface,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 15,
+                          vertical: 11,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(25),
                           borderSide: BorderSide.none,
                         ),
                       ),
+                      onSubmitted: (_) => sendMessage(),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  IconButton.filled(
-                    onPressed: loading ? null : sendMessage,
-                    icon: const Icon(Icons.send),
+                  IconButton(
+                    icon: const Icon(Icons.attach_file),
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Attachments coming soon'),
+                        ),
+                      );
+                    },
+                  ),
+                  IconButton(
+                    onPressed: sendMessage,
+                    icon: const Icon(
+                      Icons.send_rounded,
+                      color: Color(0xFF00A884),
+                    ),
                   ),
                 ],
               ),
@@ -333,4 +447,5 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 }
+
 
