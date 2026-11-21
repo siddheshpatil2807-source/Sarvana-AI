@@ -1,17 +1,23 @@
+
 name: sarvana_ai
 description: Sarvana AI companion application
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
-  sdk: '>=3.3.0 <4.0.0'
+  sdk: '>=3.11.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
+
+  # Local storage
   shared_preferences: ^2.5.6
-  image_picker: ^1.2.0
-  path_provider: ^2.1.5
+  path_provider: ^2.1.6
+
+  # Gallery and photo customization
+  image_picker: ^1.2.4
+  image_cropper: ^14.0.0
 
 dev_dependencies:
   flutter_test:
@@ -20,5 +26,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
 
 
